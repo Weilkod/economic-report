@@ -1,0 +1,10 @@
+yfinance>=0.2.31
+pandas>=2.0.0
+matplotlib>=3.7.0
+reportlab>=4.0.0
+Pillow>=10.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+streamlit>=1.32.0
+anthropic>=0.20.0
+pdf2image>=1.16.0
