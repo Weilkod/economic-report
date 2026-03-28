@@ -248,55 +248,80 @@ def fetch_all(period_days: int = PERIOD_DAYS) -> tuple:
 
 # ── 요약 DataFrame ───────────────────────────────────────────────
 def latest_summary(data: dict, precious: dict) -> pd.DataFrame:
+    """
+    발행일(한국시간 기준) 데이터 선택 기준:
+      - 미국 지수 (S&P500, NASDAQ, 다우존스)  → 발행일 전날 종가 (미국장 마감)
+      - 금·은 국제시세 (GC=F, SI=F)          → 발행일 전날 종가
+      - KOSPI, KOSDAQ                         → 발행일 당일 최신값
+      - USD/KRW 환율                          → 발행일 당일 최신값
+      - 금·은 국내 살때/팔때                  → 키즈맘 기사 발행일 기준
+    """
     rows = []
     today = datetime.today().strftime("%Y-%m-%d")
+
+    # 전날 종가를 써야 하는 미국 지표
+    US_TICKERS  = {"S&P 500", "NASDAQ", "다우존스", "금 (국제)", "은 (국제)"}
+    # 당일 최신값을 쓰는 한국 지표
+    KR_TICKERS  = {"KOSPI", "KOSDAQ", "USD/KRW"}
+
     unit_map = {
-        "USD/KRW": "원",
-        "S&P 500": "pt", "NASDAQ": "pt",
-        "다우존스": "pt", "KOSPI": "pt", "KOSDAQ": "pt",
+        "USD/KRW":   "원",
+        "S&P 500":   "pt", "NASDAQ":    "pt",
+        "다우존스":  "pt", "KOSPI":     "pt", "KOSDAQ":   "pt",
+        "금 (국제)": "$/oz", "은 (국제)": "$/oz",
     }
 
     for name, df in data.items():
         if len(df) < 2:
             continue
-        latest = float(df["close"].iloc[-1])
-        prev   = float(df["close"].iloc[-2])
-        chg    = latest - prev
-        pct    = chg / prev * 100
+
+        if name in US_TICKERS:
+            # 전날 종가 = iloc[-1] (야후파이낸스는 오늘 포함 안 하므로 그대로)
+            latest = float(df["close"].iloc[-1])
+            prev   = float(df["close"].iloc[-2])
+            ref_date = df.index[-1].strftime("%Y-%m-%d")
+        else:
+            # 당일 최신값
+            latest = float(df["close"].iloc[-1])
+            prev   = float(df["close"].iloc[-2])
+            ref_date = df.index[-1].strftime("%Y-%m-%d")
+
+        chg = latest - prev
+        pct = chg / prev * 100
+
         rows.append({
             "지표":      name,
             "최신값":    round(latest, 2),
             "전일대비":  round(chg, 2),
             "등락률(%)": round(pct, 2),
             "단위":      unit_map.get(name, ""),
-            "기준일":    df.index[-1].strftime("%Y-%m-%d"),
+            "기준일":    ref_date,
         })
 
-    # 금 10돈
-    buy_10  = precious.get("금_살때_1돈",  0) * 10
-    sell_10 = precious.get("금_팔때_1돈",  0) * 10
+    # 금·은 국내 살때/팔때 — 키즈맘 기사 발행일 기준
     base_dt = precious.get("기준일", today)
-    src     = precious.get("출처", "키즈맘")
+    DON_G   = 3.75
+    KG_G    = 1000.0
 
-    if buy_10:
-        rows.append({"지표": "금 살때 (10돈)", "최신값": buy_10,
+    gold_buy_10  = precious.get("금_살때_1돈", 0) * 10
+    gold_sell_10 = precious.get("금_팔때_1돈", 0) * 10
+    silv_buy_kg  = round(precious.get("은_살때_1돈", 0) / DON_G * KG_G)
+    silv_sell_kg = round(precious.get("은_팔때_1돈", 0) / DON_G * KG_G)
+
+    if gold_buy_10:
+        rows.append({"지표": "금 살때 (10돈)", "최신값": gold_buy_10,
                      "전일대비": "-", "등락률(%)": "-",
                      "단위": "원/10돈", "기준일": base_dt})
-    if sell_10:
-        rows.append({"지표": "금 팔때 (10돈)", "최신값": sell_10,
+    if gold_sell_10:
+        rows.append({"지표": "금 팔때 (10돈)", "최신값": gold_sell_10,
                      "전일대비": "-", "등락률(%)": "-",
                      "단위": "원/10돈", "기준일": base_dt})
-
-    # 은 1kg
-    s_buy  = precious.get("은_살때_1돈", 0)
-    s_sell = precious.get("은_팔때_1돈", 0)
-    if s_buy:
-        buy_kg  = round(s_buy  / DON_G * KG_G)
-        sell_kg = round(s_sell / DON_G * KG_G)
-        rows.append({"지표": "은 살때 (1kg)", "최신값": buy_kg,
+    if silv_buy_kg:
+        rows.append({"지표": "은 살때 (1kg)", "최신값": silv_buy_kg,
                      "전일대비": "-", "등락률(%)": "-",
                      "단위": "원/kg", "기준일": base_dt})
-        rows.append({"지표": "은 팔때 (1kg)", "최신값": sell_kg,
+    if silv_sell_kg:
+        rows.append({"지표": "은 팔때 (1kg)", "최신값": silv_sell_kg,
                      "전일대비": "-", "등락률(%)": "-",
                      "단위": "원/kg", "기준일": base_dt})
 

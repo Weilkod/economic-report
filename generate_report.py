@@ -106,22 +106,38 @@ def _section(title: str) -> list:
 
 
 # ── 날짜 헤더 바 ─────────────────────────────────────────────────
-def _date_bar() -> Table:
+def _date_bar(summary_df: pd.DataFrame = None) -> Table:
     today = datetime.today().strftime("%Y년 %m월 %d일")
+
+    # 미국 지표 기준일 (전날)
+    us_date = ""
+    kr_date = today
+    if summary_df is not None:
+        us_rows = summary_df[summary_df["지표"].isin(["S&P 500","NASDAQ","다우존스"])]
+        kr_rows = summary_df[summary_df["지표"].isin(["KOSPI","KOSDAQ"])]
+        if not us_rows.empty:
+            us_date = us_rows.iloc[0]["기준일"]
+        if not kr_rows.empty:
+            kr_date = kr_rows.iloc[0]["기준일"]
+
+    left_txt  = f"경제 지표 리포트   {today}"
+    right_txt = (f"미국·금은(국제) {us_date}  |  한국·환율·금은 {kr_date}"
+                 if us_date and us_date != kr_date else today)
+
     row = [[
-        _img("경제 지표 리포트", fontsize=13, color="#FFFFFF", max_width_mm=100),
-        _img(today,             fontsize=13, color="#BFD7F7", max_width_mm=70),
+        _img(left_txt,  fontsize=12, color="#FFFFFF",  max_width_mm=120),
+        _img(right_txt, fontsize=9,  color="#BFD7F7",  max_width_mm=65),
     ]]
-    t = Table(row, colWidths=[TBL_W*0.6, TBL_W*0.4])
+    t = Table(row, colWidths=[TBL_W*0.62, TBL_W*0.38])
     t.setStyle(TableStyle([
-        ("BACKGROUND",   (0,0),(-1,-1), BLUE_DARK),
-        ("ALIGN",        (0,0),(0,-1),  "LEFT"),
-        ("ALIGN",        (1,0),(1,-1),  "RIGHT"),
-        ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
-        ("TOPPADDING",   (0,0),(-1,-1), 8),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 8),
-        ("LEFTPADDING",  (0,0),(-1,-1), 12),
-        ("RIGHTPADDING", (0,0),(-1,-1), 12),
+        ("BACKGROUND",    (0,0),(-1,-1), BLUE_DARK),
+        ("ALIGN",         (0,0),(0,-1),  "LEFT"),
+        ("ALIGN",         (1,0),(1,-1),  "RIGHT"),
+        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ("TOPPADDING",    (0,0),(-1,-1), 8),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 8),
+        ("LEFTPADDING",   (0,0),(-1,-1), 12),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 12),
     ]))
     return t
 
@@ -403,19 +419,25 @@ def build_pdf(summary_df: pd.DataFrame,
     story = []
 
     # ── 날짜 헤더 바 ──────────────────────────────────────────────
-    story.append(_date_bar())
+    story.append(_date_bar(summary_df))
     story.append(Spacer(1, 3*mm))
 
     # ── 섹션 1: 지표 요약 ─────────────────────────────────────────
     story += _section("1.  지표 요약")
 
-    base_dates = summary_df[
-        ~summary_df["지표"].str.contains("살때|팔때", na=False)]["기준일"]
-    base_date  = (base_dates.iloc[0] if not base_dates.empty
-                  else datetime.today().strftime("%Y-%m-%d"))
+    # 미국 기준일 / 한국 기준일 구분
+    us_rows = summary_df[summary_df["지표"].isin(["S&P 500","NASDAQ","다우존스"])]
+    kr_rows = summary_df[summary_df["지표"].isin(["KOSPI","KOSDAQ"])]
+    us_date = us_rows.iloc[0]["기준일"] if not us_rows.empty else "-"
+    kr_date = kr_rows.iloc[0]["기준일"] if not kr_rows.empty else "-"
+
+    if us_date != kr_date:
+        date_note = f"미국·금은(국제): {us_date} 종가  |  한국·환율·금은: {kr_date} 기준"
+    else:
+        date_note = f"기준일: {us_date}"
 
     story.append(_img(
-        f"주가지수·환율의 최신값과 전일 대비 변동입니다.  (기준일: {base_date})",
+        f"주가지수·환율의 최신값과 전일 대비 변동입니다.  ({date_note})",
         fontsize=11, color="#374151"
     ))
     story.append(Spacer(1, 3*mm))
