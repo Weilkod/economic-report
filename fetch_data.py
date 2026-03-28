@@ -48,7 +48,14 @@ HEADERS = {
 
 # ── 키즈맘 금시세 기사 크롤링 ────────────────────────────────────
 def _parse_kizmom_article(idxno: int) -> dict:
-    """기사 하나를 파싱해서 금·은 가격을 반환합니다."""
+    """
+    키즈맘 기사에서 '한국금거래소' 기준 금·은 살때/팔때만 파싱합니다.
+    기사 구조 예시:
+      한국금거래소에 따르면 27일 오전 9시 50분 기준
+      순금 한 돈(3.75g) 가격은 살 때 934,000원으로 ...
+      팔 때 가격은 786,000원으로 ...
+      은 시세는 살 때 14,740원, 팔 때 11,520원이다.
+    """
     url = f"https://www.kizmom.com/news/articleView.html?idxno={idxno}"
     try:
         res = requests.get(url, headers=HEADERS, timeout=10)
@@ -56,31 +63,38 @@ def _parse_kizmom_article(idxno: int) -> dict:
             return {}
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 금시세 기사가 맞는지 확인
+        # 금시세 기사 확인
         title = soup.find("h1") or soup.find("h2")
         if title and "금시세" not in title.get_text():
             return {}
 
         text = soup.get_text(" ", strip=True)
 
+        # ── 한국금거래소 기준 섹션만 추출 ────────────────────────
+        # "한국금거래소에 따르면" 이후 텍스트만 사용
+        if "한국금거래소에 따르면" not in text:
+            print(f"  ✗ idxno={idxno}: 한국금거래소 기준 없음")
+            return {}
+
+        # 한국금거래소 섹션 시작점 이후만 파싱
+        krx_section = text[text.index("한국금거래소에 따르면"):]
+
         result = {}
 
-        # 금 살때
-        m = re.search(r"순금 한 돈[^살팔]*살 때\s*([\d,]+)원", text)
-        if not m:
-            m = re.search(r"살 때\s*([\d,]+)원", text)
+        # 금 살때: "살 때 934,000원"
+        m = re.search(r"살 때\s*([\d,]+)원", krx_section)
         if m:
             result["금_살때_1돈"] = int(m.group(1).replace(",", ""))
 
-        # 금 팔때
-        m = re.search(r"팔 때 가격은\s*([\d,]+)원", text)
+        # 금 팔때: "팔 때 가격은 786,000원" 또는 "팔 때 786,000원"
+        m = re.search(r"팔 때 가격은\s*([\d,]+)원", krx_section)
         if not m:
-            m = re.search(r"팔 때\s*([\d,]+)원", text)
+            m = re.search(r"팔 때\s*([\d,]+)원", krx_section)
         if m:
             result["금_팔때_1돈"] = int(m.group(1).replace(",", ""))
 
-        # 은 살때/팔때 — "은 시세는 살 때 XX,XXX원, 팔 때 XX,XXX원"
-        m = re.search(r"은 시세는 살 때\s*([\d,]+)원[^팔]*팔 때\s*([\d,]+)원", text)
+        # 은: "은 시세는 살 때 14,740원, 팔 때 11,520원"
+        m = re.search(r"은 시세는 살 때\s*([\d,]+)원[^팔]*팔 때\s*([\d,]+)원", krx_section)
         if m:
             result["은_살때_1돈"] = int(m.group(1).replace(",", ""))
             result["은_팔때_1돈"] = int(m.group(2).replace(",", ""))
@@ -88,8 +102,11 @@ def _parse_kizmom_article(idxno: int) -> dict:
         # 날짜 추출
         m = re.search(r"(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})", text)
         if m:
-            result["기준일"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            result["기준일"] = (f"{m.group(1)}-"
+                               f"{int(m.group(2)):02d}-"
+                               f"{int(m.group(3)):02d}")
 
+        result["출처"] = "키즈맘 (한국금거래소 기준)"
         return result
 
     except Exception as e:
