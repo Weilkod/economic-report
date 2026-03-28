@@ -4,7 +4,6 @@ Streamlit 웹앱 — 경제 지표 PDF/JPG 리포트 생성기
 """
 
 import streamlit as st
-import pandas as pd
 import os
 import io
 import zipfile
@@ -17,39 +16,35 @@ st.set_page_config(
     layout="centered",
 )
 
-st.markdown("""
-<style>
-  .main { max-width: 720px; margin: auto; }
-</style>
-""", unsafe_allow_html=True)
-
 st.markdown("## 📊 경제 지표 리포트")
 st.markdown("미국·한국 | 주가지수·환율·금·은 | 실시간 데이터")
 st.divider()
 
-# ── 설정 ────────────────────────────────────────────────────────
+# ── 설정 (기본값 먼저 지정) ─────────────────────────────────────
+days     = 90
+save_pdf = True
+save_jpg = False
+dpi      = 200
+quality  = 92
+use_ai   = True
+api_key  = ""
+
 with st.expander("⚙️ 설정", expanded=False):
-    days    = st.slider("데이터 기간 (일)", 30, 365, 90, 30)
-    fmt_col1, fmt_col2 = st.columns(2)
-    with fmt_col1:
+    days     = st.slider("데이터 기간 (일)", 30, 365, 90, 30)
+    col_fmt1, col_fmt2 = st.columns(2)
+    with col_fmt1:
         save_pdf = st.checkbox("PDF 다운로드", value=True)
-    with fmt_col2:
+    with col_fmt2:
         save_jpg = st.checkbox("JPG 다운로드", value=False)
     if save_jpg:
         dpi     = st.select_slider("JPG 해상도 (DPI)", [100, 150, 200, 300], value=200)
         quality = st.slider("JPG 품질", 60, 100, 92)
-    else:
-        dpi, quality = 200, 92
     use_ai  = st.toggle("AI 변동 요약 사용", value=True)
     if use_ai:
-        api_key = st.text_input("Anthropic API Key", type="password",
-                                help="ANTHROPIC_API_KEY 환경변수로도 설정 가능")
-    else:
-        api_key = ""
-else:
-    days, save_pdf, save_jpg = 90, True, False
-    dpi, quality = 200, 92
-    use_ai, api_key = True, ""
+        api_key = st.text_input(
+            "Anthropic API Key", type="password",
+            help="ANTHROPIC_API_KEY 환경변수로도 설정 가능"
+        )
 
 # ── 지표 미리보기 ────────────────────────────────────────────────
 col1, col2 = st.columns(2)
@@ -101,13 +96,14 @@ if generate:
     # 3. 차트 + PDF + JPG
     with st.spinner("📊 리포트 생성 중..."):
         try:
-            from make_charts     import make_all_charts
+            from make_charts import make_all_charts
             from generate_report import build_pdf, pdf_to_jpg
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                chart_paths = make_all_charts(data, output_dir=tmpdir)
-
-                today_str = datetime.today().strftime('%Y%m%d')
+                chart_paths = make_all_charts(
+                    data, output_dir=tmpdir, summary_df=summary
+                )
+                today_str = datetime.today().strftime("%Y%m%d")
                 pdf_name  = f"economic_report_{today_str}.pdf"
                 pdf_path  = os.path.join(tmpdir, pdf_name)
 
@@ -121,7 +117,7 @@ if generate:
                     with open(pdf_path, "rb") as f:
                         pdf_bytes = f.read()
 
-                # JPG 바이트 목록
+                # JPG 바이트
                 jpg_data = {}
                 if save_jpg:
                     jpg_dir   = os.path.join(tmpdir, "jpg")
@@ -140,7 +136,6 @@ if generate:
 
     # 요약 표
     st.markdown("### 📋 지표 요약")
-    df_disp = summary.copy()
 
     def fmt_pct(x):
         try:
@@ -149,10 +144,11 @@ if generate:
         except Exception:
             return "-"
 
+    df_disp = summary.copy()
     df_disp["등락률(%)"] = df_disp["등락률(%)"].apply(fmt_pct)
     st.dataframe(df_disp, use_container_width=True, hide_index=True)
 
-    # 다운로드 버튼들
+    # 다운로드 버튼
     st.markdown("### ⬇️ 다운로드")
     dl_col1, dl_col2 = st.columns(2)
 
@@ -169,7 +165,6 @@ if generate:
     with dl_col2:
         if save_jpg and jpg_data:
             if len(jpg_data) == 1:
-                # 단일 페이지 → JPG 직접 다운로드
                 fname, fbytes = next(iter(jpg_data.items()))
                 st.download_button(
                     label="🖼️ JPG 다운로드",
@@ -179,7 +174,6 @@ if generate:
                     use_container_width=True,
                 )
             else:
-                # 여러 페이지 → ZIP으로 묶어서 다운로드
                 zip_buf = io.BytesIO()
                 with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
                     for fname, fbytes in jpg_data.items():
