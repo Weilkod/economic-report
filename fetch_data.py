@@ -17,14 +17,15 @@ from datetime import datetime, timedelta
 
 # ── Yahoo Finance 수집 대상 ──────────────────────────────────────
 TICKERS = {
-    "S&P 500":   "^GSPC",
-    "NASDAQ":    "^IXIC",
-    "다우존스":  "^DJI",
-    "KOSPI":     "^KS11",
-    "KOSDAQ":    "^KQ11",
-    "USD/KRW":   "KRW=X",
-    "금 (국제)": "GC=F",
-    "은 (국제)": "SI=F",
+    "S&P 500":      "^GSPC",
+    "NASDAQ":       "^IXIC",
+    "다우존스":     "^DJI",
+    "KOSPI":        "^KS11",
+    "KOSDAQ":       "^KQ11",
+    "원/달러 환율": "KRW=X",
+    "비트코인":     "BTC-KRW",
+    "금 (국제)":    "GC=F",
+    "은 (국제)":    "SI=F",
 }
 PERIOD_DAYS = 90
 
@@ -176,7 +177,7 @@ def _fetch_kizmom_gold() -> dict:
 def _calc_from_krx(raw: dict) -> dict:
     """Yahoo Finance 국제 시세 × 환율로 살때/팔때 근사 계산"""
     try:
-        krw = float(raw["USD/KRW"]["close"].iloc[-1])
+        krw = float(raw["원/달러 환율"]["close"].iloc[-1])
         gold_usd = float(raw["금 (국제)"]["close"].iloc[-1])
         silv_usd = float(raw["은 (국제)"]["close"].iloc[-1])
 
@@ -260,15 +261,16 @@ def latest_summary(data: dict, precious: dict) -> pd.DataFrame:
     today = datetime.today().strftime("%Y-%m-%d")
 
     # 전날 종가를 써야 하는 미국 지표
-    US_TICKERS  = {"S&P 500", "NASDAQ", "다우존스", "금 (국제)", "은 (국제)"}
+    US_TICKERS = {"S&P 500", "NASDAQ", "다우존스", "금 (국제)", "은 (국제)"}
     # 당일 최신값을 쓰는 한국 지표
-    KR_TICKERS  = {"KOSPI", "KOSDAQ", "USD/KRW"}
+    KR_TICKERS = {"KOSPI", "KOSDAQ", "원/달러 환율", "비트코인"}
 
     unit_map = {
-        "USD/KRW":   "원",
-        "S&P 500":   "pt", "NASDAQ":    "pt",
-        "다우존스":  "pt", "KOSPI":     "pt", "KOSDAQ":   "pt",
-        "금 (국제)": "$/oz", "은 (국제)": "$/oz",
+        "원/달러 환율": "원",
+        "S&P 500":      "pt",  "NASDAQ":    "pt",
+        "다우존스":     "pt",  "KOSPI":     "pt",  "KOSDAQ":    "pt",
+        "금 (국제)":    "$/oz","은 (국제)": "$/oz",
+        "비트코인":     "원",
     }
 
     for name, df in data.items():

@@ -99,9 +99,9 @@ def _img(text: str, fontsize: int = 13, color: str = "#111827",
 def _section(title: str) -> list:
     return [
         Spacer(1, 1*mm),
-        _img(title, fontsize=16, color="#1E3A5F", max_width_mm=174),
-        HRFlowable(width="100%", thickness=1.5, color=BLUE_MID,
-                   spaceBefore=1, spaceAfter=4),
+        _img(title, fontsize=14, color="#1E3A5F", max_width_mm=174),
+        HRFlowable(width="100%", thickness=1.2, color=BLUE_MID,
+                   spaceBefore=1, spaceAfter=3),
     ]
 
 
@@ -147,28 +147,27 @@ def _summary_table(summary_df: pd.DataFrame) -> Table:
     # 금·은 살때/팔때 제외
     df = summary_df[~summary_df["지표"].str.contains("살때|팔때", na=False)]
 
-    # 기준일 컬럼 제거 → 5컬럼
-    col_w = [TBL_W*0.27, TBL_W*0.23, TBL_W*0.14,
-             TBL_W*0.18, TBL_W*0.18]
+    col_w = [TBL_W*0.22, TBL_W*0.18, TBL_W*0.11,
+             TBL_W*0.15, TBL_W*0.15, TBL_W*0.19]
 
-    headers = ["지표", "최신값", "단위", "전일대비", "등락률(%)"]
-    header_row = [_img(t, fontsize=11, color="#FFFFFF", max_width_mm=col_w[i]/mm)
+    headers = ["지표", "최신값", "단위", "전일대비", "등락률(%)", "기준일"]
+    header_row = [_img(t, fontsize=10, color="#FFFFFF", max_width_mm=col_w[i]/mm)
                   for i, t in enumerate(headers)]
     rows = [header_row]
 
     for _, row in df.iterrows():
         pct = row["등락률(%)"]
         if str(pct) == "-":
-            pct_img = _img("-", fontsize=12, color="#6B7280")
-            chg_img = _img("-", fontsize=12, color="#6B7280")
+            pct_img = _img("-", fontsize=11, color="#6B7280")
+            chg_img = _img("-", fontsize=11, color="#6B7280")
         else:
             v = float(pct)
             sign = "▲" if v >= 0 else "▼"
             col  = "#065F46" if v >= 0 else "#991B1B"
             pct_img = _img(f"{sign} {abs(v):.2f}%",
-                           fontsize=12, color=col, max_width_mm=col_w[4]/mm)
+                           fontsize=11, color=col, max_width_mm=col_w[4]/mm)
             chg_img = _img(f"{float(row['전일대비']):+.2f}",
-                           fontsize=12, color=col, max_width_mm=col_w[3]/mm)
+                           fontsize=11, color=col, max_width_mm=col_w[3]/mm)
 
         val = row["최신값"]
         try:
@@ -178,11 +177,12 @@ def _summary_table(summary_df: pd.DataFrame) -> Table:
             val_str = str(val)
 
         rows.append([
-            _img(row["지표"],  fontsize=12, color="#111827", max_width_mm=col_w[0]/mm),
-            _img(val_str,      fontsize=12, color="#111827", max_width_mm=col_w[1]/mm),
-            _img(row["단위"],  fontsize=11, color="#374151", max_width_mm=col_w[2]/mm),
+            _img(row["지표"],   fontsize=11, color="#111827", max_width_mm=col_w[0]/mm),
+            _img(val_str,       fontsize=11, color="#111827", max_width_mm=col_w[1]/mm),
+            _img(row["단위"],   fontsize=10, color="#374151", max_width_mm=col_w[2]/mm),
             chg_img,
             pct_img,
+            _img(row["기준일"], fontsize=10, color="#374151", max_width_mm=col_w[5]/mm),
         ])
 
     t = Table(rows, colWidths=col_w, repeatRows=1)
@@ -192,8 +192,8 @@ def _summary_table(summary_df: pd.DataFrame) -> Table:
         ("VALIGN",         (0,0),(-1,-1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0,1),(-1,-1), [BLUE_LIGHT, WHITE]),
         ("GRID",           (0,0),(-1,-1), 0.4, colors.HexColor("#CBD5E1")),
-        ("TOPPADDING",     (0,0),(-1,-1), 7),    # 행 높이 확대
-        ("BOTTOMPADDING",  (0,0),(-1,-1), 7),
+        ("TOPPADDING",     (0,0),(-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0),(-1,-1), 4),
     ]))
     return t
 
@@ -210,18 +210,18 @@ def _precious_box(summary_df: pd.DataFrame) -> list:
         try: return f"{int(float(v)):,}"
         except: return str(v)
 
-    def make_box(title, buy_val, sell_val, unit, bg, border):
+    def make_box(title, buy_val, sell_val, unit, date, bg, border):
         rows = [
-            # 제목 행 (기준일 제거)
-            [_img(title, fontsize=14, color="#1E3A5F", max_width_mm=TBL_W*0.9/mm),
-             Spacer(1,1)],
+            # 제목 + 기준일 (오른쪽)
+            [_img(title,           fontsize=13, color="#1E3A5F", max_width_mm=TBL_W*0.55/mm),
+             _img(f"기준일  {date}", fontsize=10, color="#6B7280", max_width_mm=TBL_W*0.38/mm)],
             # 살때 / 팔때
             [_img(f"살  때     {fmt(buy_val)} 원",
-                  fontsize=17, color="#065F46", max_width_mm=TBL_W*0.5/mm),
+                  fontsize=15, color="#065F46", max_width_mm=TBL_W*0.5/mm),
              _img(f"팔  때     {fmt(sell_val)} 원",
-                  fontsize=17, color="#991B1B", max_width_mm=TBL_W*0.5/mm)],
+                  fontsize=15, color="#991B1B", max_width_mm=TBL_W*0.5/mm)],
             # 단위
-            [_img(f"({unit})", fontsize=10, color="#9CA3AF"),
+            [_img(f"({unit})", fontsize=9, color="#9CA3AF"),
              Spacer(1,1)],
         ]
         t = Table(rows, colWidths=[TBL_W*0.5, TBL_W*0.5])
@@ -229,11 +229,12 @@ def _precious_box(summary_df: pd.DataFrame) -> list:
             ("BACKGROUND",    (0,0),(-1,-1), bg),
             ("BOX",           (0,0),(-1,-1), 1.5, border),
             ("ALIGN",         (0,0),(-1,-1), "LEFT"),
+            ("ALIGN",         (1,0),(1,0),   "RIGHT"),   # 기준일 오른쪽 정렬
             ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-            ("TOPPADDING",    (0,0),(-1,-1), 10),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 10),
-            ("LEFTPADDING",   (0,0),(-1,-1), 14),
-            ("RIGHTPADDING",  (0,0),(-1,-1), 14),
+            ("TOPPADDING",    (0,0),(-1,-1), 6),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 6),
+            ("LEFTPADDING",   (0,0),(-1,-1), 12),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 12),
             ("LINEBELOW",     (0,0),(-1,0),  0.8, border),
         ]))
         return t
@@ -246,12 +247,12 @@ def _precious_box(summary_df: pd.DataFrame) -> list:
     if gb and gs:
         elements.append(make_box("금  (순금 24K)", gb, gs,
                                  "10돈 기준, 살 때 VAT 포함, 한국금거래소 기준",
-                                 GOLD_BG, GOLD_BORDER))
+                                 date, GOLD_BG, GOLD_BORDER))
     if sb and ss:
         elements.append(Spacer(1, 2*mm))
         elements.append(make_box("은  (순은)", sb, ss,
                                  "1kg 기준, 살 때 VAT 포함, 한국금거래소 기준",
-                                 SILV_BG, SILV_BORDER))
+                                 date, SILV_BG, SILV_BORDER))
 
     elements.append(Spacer(1, 2*mm))
     return elements
@@ -278,20 +279,30 @@ def _ai_summary_section(summaries: dict, summary_df: pd.DataFrame) -> list:
                 spaceBefore=4, spaceAfter=4
             ))
 
-        # 등락 뱃지
+        # 등락 뱃지 + 현재값
         matched = summary_df[summary_df["지표"] == name]
         badge_color = "#374151"
         badge_text  = name
         if not matched.empty:
             try:
-                pct_f = float(matched.iloc[0]["등락률(%)"])
-                sign  = "▲" if pct_f >= 0 else "▼"
+                row    = matched.iloc[0]
+                pct_f  = float(row["등락률(%)"])
+                val    = float(row["최신값"])
+                unit   = row["단위"]
+                sign   = "▲" if pct_f >= 0 else "▼"
                 badge_color = "#065F46" if pct_f >= 0 else "#991B1B"
-                badge_text  = f"{name}   {sign} {abs(pct_f):.2f}%"
+
+                # 현재값 포맷
+                val_str = (f"{val:,.0f}" if val > 999 else f"{val:,.2f}")
+
+                # "• S&P 500   6,508 pt   ▲ 1.27%"
+                badge_text = (f"{name}     "
+                              f"{val_str} {unit}     "
+                              f"{sign} {abs(pct_f):.2f}%")
             except Exception:
                 pass
 
-        # 지표명 + 등락 (굵고 크게)
+        # 지표명 + 현재값 + 등락 한 줄
         elements.append(_img(f"• {badge_text}", fontsize=13,
                              color=badge_color, max_width_mm=174))
         # 요약 내용 (넉넉한 크기, 왼쪽 정렬)
@@ -420,12 +431,11 @@ def build_pdf(summary_df: pd.DataFrame,
 
     # ── 날짜 헤더 바 ──────────────────────────────────────────────
     story.append(_date_bar(summary_df))
-    story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 2*mm))
 
     # ── 섹션 1: 지표 요약 ─────────────────────────────────────────
     story += _section("1.  지표 요약")
 
-    # 미국 기준일 / 한국 기준일 구분
     us_rows = summary_df[summary_df["지표"].isin(["S&P 500","NASDAQ","다우존스"])]
     kr_rows = summary_df[summary_df["지표"].isin(["KOSPI","KOSDAQ"])]
     us_date = us_rows.iloc[0]["기준일"] if not us_rows.empty else "-"
@@ -438,11 +448,11 @@ def build_pdf(summary_df: pd.DataFrame,
 
     story.append(_img(
         f"주가지수·환율의 최신값과 전일 대비 변동입니다.  ({date_note})",
-        fontsize=11, color="#374151"
+        fontsize=10, color="#374151"
     ))
-    story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(_summary_table(summary_df))
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 3*mm))
     story += _precious_box(summary_df)
 
     # ── 섹션 2: AI 변동 요약 — 내용 있을 때만 새 페이지 ────────────
