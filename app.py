@@ -144,9 +144,26 @@ if generate:
         except Exception:
             return "-"
 
-    df_disp = summary.copy()
+    def fmt_chg(x):
+        try:
+            v = float(x)
+            return f"{v:+.2f}"
+        except Exception:
+            return "-"
+
+    def fmt_val(x):
+        try:
+            v = float(x)
+            return f"{v:,.0f}" if v > 999 else f"{v:,.2f}"
+        except Exception:
+            return str(x)
+
+    df_disp = summary[~summary["지표"].str.contains("살때|팔때", na=False)].copy()
+    df_disp["최신값"]    = df_disp["최신값"].apply(fmt_val)
+    df_disp["전일대비"]  = df_disp["전일대비"].apply(fmt_chg)
     df_disp["등락률(%)"] = df_disp["등락률(%)"].apply(fmt_pct)
-    st.dataframe(df_disp, use_container_width=True, hide_index=True)
+    st.dataframe(df_disp[["지표","최신값","단위","전일대비","등락률(%)","기준일"]],
+                 use_container_width=True, hide_index=True)
 
     # 다운로드 버튼
     st.markdown("### ⬇️ 다운로드")

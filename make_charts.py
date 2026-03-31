@@ -16,9 +16,17 @@ import pandas as pd
 
 try:
     import matplotlib.font_manager as fm
+    # Streamlit Cloud(리눅스) + 로컬 환경 모두 대응
+    for fp in [
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
+    ]:
+        if os.path.exists(fp):
+            fm.fontManager.addfont(fp)
+
     korean_fonts = [f.name for f in fm.fontManager.ttflist
                     if any(k in f.name for k in
-                           ["Malgun","malgun","NanumGothic","AppleGothic",
+                           ["Nanum","Malgun","malgun","AppleGothic",
                             "NotoSansCJK","Noto Sans CJK","Gulim","Batang"])]
     plt.rcParams["font.family"] = korean_fonts[0] if korean_fonts else "DejaVu Sans"
 except Exception:

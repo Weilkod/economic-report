@@ -48,11 +48,12 @@ TBL_W  = PAGE_W - 2 * MARGIN
 # ── 한글 폰트 ─────────────────────────────────────────────────────
 def _find_korean_font():
     for p in [
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "C:/Windows/Fonts/malgun.ttf",
         "C:/Windows/Fonts/gulim.ttc",
         "/Library/Fonts/AppleGothic.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
     ]:
         if os.path.exists(p):
             return p
